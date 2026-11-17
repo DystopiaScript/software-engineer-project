@@ -11,6 +11,7 @@
 #include <QGridLayout>
 #include <QGroupBox>
 #include <QHBoxLayout>
+#include <QHash>
 #include <QHeaderView>
 #include <QIcon>
 #include <QLabel>
@@ -152,7 +153,87 @@ QString showcaseControlStyle()
         .arg(success);
 }
 
+QFrame *createDashboardMetricCard(const QString &label, const QString &value, const QString &detail, const QString &detailColor, QWidget *parent)
+{
+    auto *card = new QFrame(parent);
+    card->setMinimumHeight(118);
+    card->setStyleSheet(cardStyle());
+
+    auto *layout = new QVBoxLayout(card);
+    layout->setContentsMargins(space4, space4, space4, space4);
+    layout->setSpacing(space1);
+
+    auto *metricLabel = new QLabel(label, card);
+    metricLabel->setStyleSheet(QStringLiteral("font-size: %1px; color: %2;").arg(textSmall).arg(mutedText));
+    auto *metricValue = new QLabel(value, card);
+    metricValue->setStyleSheet(QStringLiteral("font-size: %1px; font-weight: %2; color: %3;").arg(textHeading).arg(weightBold).arg(ink));
+    auto *metricDetail = new QLabel(detail, card);
+    metricDetail->setStyleSheet(QStringLiteral("font-size: %1px; font-weight: %2; color: %3;").arg(textSmall).arg(weightSemibold).arg(detailColor));
+    layout->addWidget(metricLabel);
+    layout->addWidget(metricValue);
+    layout->addWidget(metricDetail);
+    return card;
+}
+
 QWidget *createDashboardPage(QWidget *parent)
+{
+    auto *page = new QWidget(parent);
+    page->setStyleSheet(QStringLiteral("background: %1;").arg(canvas));
+    auto *layout = new QVBoxLayout(page);
+    layout->setContentsMargins(space8, space6, space8, space8);
+    layout->setSpacing(space5);
+
+    auto *metrics = new QGridLayout;
+    metrics->setHorizontalSpacing(space3);
+    metrics->setVerticalSpacing(space3);
+    metrics->setColumnStretch(0, 1);
+    metrics->setColumnStretch(1, 1);
+    metrics->setColumnStretch(2, 1);
+    metrics->setColumnStretch(3, 1);
+    metrics->addWidget(createDashboardMetricCard("Ventas de hoy", "$8,420", "+8% vs. ayer", success, page), 0, 0);
+    metrics->addWidget(createDashboardMetricCard("Stock crítico", "6 insumos", "Requiere compra", danger, page), 0, 1);
+    metrics->addWidget(createDashboardMetricCard("Lotes por vencer", "3 lotes", "< 72 horas", warning, page), 0, 2);
+    metrics->addWidget(createDashboardMetricCard("Mermas del mes", "$1,240", "-12% vs. mes anterior", success, page), 0, 3);
+    layout->addLayout(metrics);
+
+    auto *alertsCard = new QFrame(page);
+    alertsCard->setStyleSheet(cardStyle());
+    auto *alertsLayout = new QVBoxLayout(alertsCard);
+    alertsLayout->setContentsMargins(space5, space5, space5, space5);
+    alertsLayout->setSpacing(space3);
+    alertsLayout->addWidget(createSectionHeading("Alertas prioritarias", alertsCard));
+
+    auto *table = new QTableWidget(3, 3, alertsCard);
+    table->setHorizontalHeaderLabels({"Insumo", "Lote", "Acción"});
+    const QList<QStringList> alerts = {{"Leche entera", "LOT-202611-014", "Crítico · usar hoy"},
+                                       {"Jarabe vainilla", "LOT-202610-008", "Bajo · reordenar"},
+                                       {"Grano espresso", "LOT-202611-021", "Óptimo"}};
+    for (int row = 0; row < alerts.size(); ++row) {
+        for (int column = 0; column < alerts.at(row).size(); ++column) {
+            auto *item = new QTableWidgetItem(alerts.at(row).at(column));
+            if (column == 2 && row < 2) {
+                item->setForeground(QColor(danger));
+            }
+            table->setItem(row, column, item);
+        }
+    }
+    table->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    table->verticalHeader()->setVisible(false);
+    table->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    table->setSelectionMode(QAbstractItemView::NoSelection);
+    table->setShowGrid(false);
+    table->setMinimumHeight(300);
+    table->setStyleSheet(QStringLiteral(
+        "QTableWidget { background: %1; color: %2; border: none; }"
+        "QHeaderView::section { background: %1; color: %3; border: none; border-bottom: 1px solid %4; padding: %5px; font-weight: %6; }"
+        "QTableWidget::item { padding: %5px; border-bottom: 1px solid %4; }")
+        .arg(surface).arg(ink).arg(mutedText).arg(border).arg(space2).arg(weightSemibold));
+    alertsLayout->addWidget(table);
+    layout->addWidget(alertsCard, 1);
+    return page;
+}
+
+QWidget *createDashboardShowcase(QWidget *parent)
 {
     auto *page = new QWidget(parent);
     page->setStyleSheet(QStringLiteral("background: %1;").arg(canvas));
@@ -295,6 +376,131 @@ QWidget *createDashboardPage(QWidget *parent)
     return page;
 }
 
+QPushButton *createPrimaryButton(const QString &text, QWidget *parent)
+{
+    auto *button = new QPushButton(text, parent);
+    button->setMinimumHeight(controlHeight);
+    button->setCursor(Qt::PointingHandCursor);
+    button->setStyleSheet(QStringLiteral(
+        "QPushButton { background: %1; color: %2; border: 1px solid %1; border-radius: %3px; "
+        "padding: 0 %4px; font-weight: %5; }"
+        "QPushButton:hover { background: %6; }"
+        "QPushButton:focus { border: 2px solid %7; }")
+        .arg(ink)
+        .arg(surface)
+        .arg(radiusSmall)
+        .arg(space3)
+        .arg(weightSemibold)
+        .arg(sidebarHover)
+        .arg(focus));
+    return button;
+}
+
+QTableWidget *createDataTable(const QStringList &headers, const QList<QStringList> &rows, QWidget *parent)
+{
+    auto *table = new QTableWidget(rows.size(), headers.size(), parent);
+    table->setHorizontalHeaderLabels(headers);
+    table->verticalHeader()->setVisible(false);
+    table->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    table->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    table->setSelectionMode(QAbstractItemView::NoSelection);
+    table->setAlternatingRowColors(true);
+    table->setShowGrid(false);
+    table->setMinimumHeight(280);
+    table->setStyleSheet(QStringLiteral(
+        "QTableWidget { background: %1; color: %2; border: 1px solid %3; border-radius: %4px; "
+        "alternate-background-color: %5; }"
+        "QHeaderView::section { background: %1; color: %6; border: none; border-bottom: 1px solid %3; "
+        "padding: %7px; font-weight: %8; }"
+        "QTableWidget::item { padding: %7px; border-bottom: 1px solid %3; }")
+        .arg(surface)
+        .arg(ink)
+        .arg(border)
+        .arg(radiusMedium)
+        .arg(surfaceMuted)
+        .arg(mutedText)
+        .arg(space2)
+        .arg(weightSemibold));
+
+    for (int row = 0; row < rows.size(); ++row) {
+        for (int column = 0; column < headers.size(); ++column) {
+            auto *item = new QTableWidgetItem(rows.at(row).value(column));
+            if (column == headers.size() - 1 && (item->text().contains("Crítico") || item->text().contains("Bajo"))) {
+                item->setForeground(QColor(danger));
+            }
+            table->setItem(row, column, item);
+        }
+    }
+    return table;
+}
+
+QWidget *createSalesPage(QWidget *parent)
+{
+    auto *page = new QWidget(parent);
+    page->setStyleSheet(QStringLiteral("background: %1;").arg(canvas));
+    auto *layout = new QHBoxLayout(page);
+    layout->setContentsMargins(space8, space6, space8, space8);
+    layout->setSpacing(space6);
+
+    auto *catalog = new QWidget(page);
+    auto *catalogLayout = new QVBoxLayout(catalog);
+    catalogLayout->setContentsMargins(0, 0, 0, 0);
+    catalogLayout->setSpacing(space3);
+    catalogLayout->addWidget(createSectionHeading("Productos del menú", catalog));
+
+    auto *products = new QGridLayout;
+    products->setHorizontalSpacing(space4);
+    products->setVerticalSpacing(space4);
+    const QList<QPair<QString, QString>> items = {{"Americano", "$42"}, {"Latte", "$56"}, {"Capuccino", "$58"},
+                                                     {"Cold brew", "$62"}, {"Chai latte", "$60"}, {"Croissant", "$38"}};
+    for (int index = 0; index < items.size(); ++index) {
+        auto *card = new QFrame(catalog);
+        card->setStyleSheet(cardStyle());
+        auto *cardLayout = new QVBoxLayout(card);
+        cardLayout->setContentsMargins(space4, space4, space4, space4);
+        cardLayout->setSpacing(space3);
+        auto *name = new QLabel(items.at(index).first, card);
+        name->setStyleSheet(QStringLiteral("font-size: %1px; font-weight: %2; color: %3;").arg(textBody).arg(weightSemibold).arg(ink));
+        auto *price = new QLabel(items.at(index).second, card);
+        price->setStyleSheet(QStringLiteral("font-size: %1px; color: %2;").arg(textBody).arg(mutedText));
+        auto *add = new QPushButton("Agregar", card);
+        add->setMinimumHeight(controlHeight);
+        add->setStyleSheet(QStringLiteral("QPushButton { background: %1; color: %2; border: 1px solid %3; border-radius: %4px; font-weight: %5; } "
+                                           "QPushButton:hover { background: %6; }")
+                               .arg(surface).arg(ink).arg(border).arg(radiusSmall).arg(weightSemibold).arg(surfaceMuted));
+        cardLayout->addWidget(name);
+        cardLayout->addWidget(price);
+        cardLayout->addWidget(add);
+        products->addWidget(card, index / 3, index % 3);
+    }
+    catalogLayout->addLayout(products);
+    catalogLayout->addStretch();
+
+    auto *ticket = new QFrame(page);
+    ticket->setMinimumWidth(430);
+    ticket->setStyleSheet(cardStyle());
+    auto *ticketLayout = new QVBoxLayout(ticket);
+    ticketLayout->setContentsMargins(space5, space5, space5, space5);
+    ticketLayout->setSpacing(space4);
+    auto *ticketTitle = createSectionHeading("Ticket actual", ticket);
+    auto *ticketMeta = new QLabel("Venta #00214 · Mostrador", ticket);
+    ticketMeta->setStyleSheet(QStringLiteral("font-size: %1px; color: %2;").arg(textSmall).arg(mutedText));
+    auto *ticketRows = createDataTable({"Producto", "Total"}, {{"Latte × 2", "$112"}, {"Croissant × 1", "$38"}}, ticket);
+    ticketRows->setMinimumHeight(130);
+    auto *total = new QLabel("Total                                      $150.00", ticket);
+    total->setStyleSheet(QStringLiteral("font-size: %1px; font-weight: %2; color: %3;").arg(textTitle).arg(weightBold).arg(ink));
+    ticketLayout->addWidget(ticketTitle);
+    ticketLayout->addWidget(ticketMeta);
+    ticketLayout->addWidget(ticketRows);
+    ticketLayout->addWidget(total);
+    ticketLayout->addWidget(createPrimaryButton("F5 · Cobrar y descontar PEPS", ticket));
+    ticketLayout->addStretch();
+
+    layout->addWidget(catalog, 1);
+    layout->addWidget(ticket);
+    return page;
+}
+
 QWidget *createPage(const QString &title, const QString &description, QWidget *parent)
 {
     auto *page = new QWidget(parent);
@@ -303,16 +509,28 @@ QWidget *createPage(const QString &title, const QString &description, QWidget *p
     layout->setContentsMargins(space8, space6, space8, space8);
     layout->setSpacing(space4);
 
-    auto *heading = new QLabel(title, page);
-    heading->setStyleSheet(
-        QStringLiteral("font-size: %1px; font-weight: %2; color: %3;").arg(textHeading).arg(weightBold).arg(ink));
-    auto *intro = new QLabel(description, page);
-    intro->setWordWrap(true);
-    intro->setStyleSheet(QStringLiteral("font-size: %1px; color: %2;").arg(textBody).arg(mutedText));
+    const QHash<QString, QList<QStringList>> rowsByModule = {
+        {"Inventory & Lots", {{"Grano espresso", "48.2 kg", "Óptimo"}, {"Leche entera", "8 L", "Crítico"}, {"Jarabe vainilla", "14 botellas", "Bajo"}, {"Vasos 12 oz", "320 pzas", "Óptimo"}}},
+        {"Lot Receipts", {{"Leche entera · LOT-202611-014", "40 L", "Recibido hoy"}, {"Grano espresso · LOT-202611-021", "25 kg", "Recibido hoy"}, {"Jarabe vainilla · LOT-202610-008", "12 botellas", "Pendiente"}}},
+        {"Waste", {{"Leche entera · LOT-202610-004", "2 L", "Caducidad"}, {"Vaso 12 oz · caja dañada", "20 pzas", "Daño accidental"}, {"Jarabe caramelo", "0.5 L", "Error preparación"}}},
+        {"Recipes", {{"Latte", "Leche + espresso", "Activo"}, {"Capuccino", "Leche + espresso", "Activo"}, {"Cold brew", "Grano + agua", "Activo"}, {"Croissant", "Repostería", "Activo"}}},
+        {"Alerts", {{"Leche entera", "Caduca en 2 días", "Crítico"}, {"Jarabe vainilla", "Stock 8 / mín. 12", "Bajo"}, {"Grano espresso", "48.2 kg disponibles", "Óptimo"}, {"Leche de avena", "Stock 6 / mín. 10", "Bajo"}}},
+        {"Purchase Orders", {{"OC-00032 · Lácteos del Norte", "3 insumos", "Emitida"}, {"OC-00031 · Café Durango", "2 insumos", "Enviada"}, {"OC-00030 · Suministros MX", "5 insumos", "Recibida"}}},
+        {"Reports", {{"Resumen de ventas", "Noviembre 2026", "Exportar PDF"}, {"Mermas financieras", "Noviembre 2026", "Exportar PDF"}, {"Movimientos PEPS", "Semana actual", "Exportar CSV"}}},
+        {"Users & Roles", {{"Ana López", "Barista / Cajero", "Activo"}, {"Carlos Ruiz", "Barista / Cajero", "Activo"}, {"María Torres", "Administrador / Gerente", "Activo"}, {"Jorge Díaz", "Barista / Cajero", "Suspendido"}}},
+    };
+    const QHash<QString, QString> actions = {{"Inventory & Lots", "Registrar lote"}, {"Lot Receipts", "Nueva recepción"}, {"Waste", "Registrar merma"},
+                                               {"Recipes", "Nueva receta"}, {"Alerts", "Ver inventario"}, {"Purchase Orders", "Generar orden PDF"},
+                                               {"Reports", "Exportar reporte"}, {"Users & Roles", "Agregar usuario"}};
 
-    layout->addWidget(heading);
-    layout->addWidget(intro);
-    layout->addWidget(createCard("Workspace placeholder", "Static content for this module will appear here in a future iteration.", page));
+    auto *toolbar = new QHBoxLayout;
+    auto *intro = new QLabel(description, page);
+    intro->setStyleSheet(QStringLiteral("font-size: %1px; color: %2;").arg(textBody).arg(mutedText));
+    toolbar->addWidget(intro);
+    toolbar->addStretch();
+    toolbar->addWidget(createPrimaryButton(actions.value(title, "Acción principal"), page));
+    layout->addLayout(toolbar);
+    layout->addWidget(createDataTable({"Nombre", "Detalle", "Estado"}, rowsByModule.value(title), page));
     layout->addStretch();
     return page;
 }
@@ -377,11 +595,8 @@ MainWindow::MainWindow(QWidget *parent)
     headerLayout->setContentsMargins(space8, 0, space8, 0);
     auto *headerTitle = new QLabel(header);
     headerTitle->setStyleSheet(QStringLiteral("font-size: %1px; font-weight: %2; color: %3;").arg(textTitle).arg(weightSemibold).arg(ink));
-    auto *headerStatus = new QLabel("Static desktop interface", header);
-    headerStatus->setStyleSheet(QStringLiteral("color: %1; background: %2; border: 1px solid %1; border-radius: %3px; padding: %4px %5px; font-size: %6px; font-weight: %7;").arg(success).arg(surface).arg(radiusSmall).arg(space1).arg(space2).arg(textSmall).arg(weightSemibold));
     headerLayout->addWidget(headerTitle);
     headerLayout->addStretch();
-    headerLayout->addWidget(headerStatus);
 
     auto *pages = new QStackedWidget(content);
     const QList<QPair<QString, QString>> modules = {
@@ -404,7 +619,9 @@ MainWindow::MainWindow(QWidget *parent)
 
     for (int index = 0; index < modules.size(); ++index) {
         const auto &module = modules.at(index);
-        pages->addWidget(index == 0 ? createDashboardPage(pages) : createPage(module.first, module.second, pages));
+        pages->addWidget(index == 0 ? createDashboardPage(pages)
+                                     : index == 1 ? createSalesPage(pages)
+                                                  : createPage(module.first, module.second, pages));
 
         auto *button = new QPushButton(QIcon(iconResources.at(index)), module.first, sidebar);
         button->setCheckable(true);
